@@ -193,6 +193,7 @@ struct MockExposureInfo: ExposureInfo, Equatable {
 
 class MockTemporaryExposureKeyProvider: TemporaryExposureKeyProvider {
   var indexesToReturn: [Int]
+  var indexesToReturnByCountry: [Country: [Int]]?
 
   var getLatestKeyChunksMethodCalls: [Int?] = []
   var clearLocalResourcesMethodCalls: [[TemporaryExposureKeyChunk]] = []
@@ -205,13 +206,33 @@ class MockTemporaryExposureKeyProvider: TemporaryExposureKeyProvider {
     self.indexesToReturn = Array(minIndexToReturn ... maxIndexToReturn)
   }
 
+  init(
+    minIndexToReturn: Int,
+    maxIndexToReturn: Int,
+    minIndexToReturnByCountry: Int,
+    maxIndexToReturnByCountry: Int,
+    country: Country
+  ) {
+    self.indexesToReturn = Array(minIndexToReturn ... maxIndexToReturn)
+    self.indexesToReturnByCountry = [country: Array(minIndexToReturnByCountry ... maxIndexToReturnByCountry)]
+  }
+
   func getLatestKeyChunks(latestKnownChunkIndex: Int?, country: Country?) -> Promise<[TemporaryExposureKeyChunk]> {
-    self.getLatestKeyChunksMethodCalls.append(latestKnownChunkIndex)
-    // swiftlint:disable force_unwrapping
-    return .init(
-      resolved: self.indexesToReturn
-        .map { .init(localUrls: [URL(string: "http://example.com/\($0)")!], index: $0) }
-    )
+    if let country = country {
+      self.getLatestKeyChunksMethodCalls.append(latestKnownChunkIndex)
+      // swiftlint:disable force_unwrapping
+      return .init(
+        resolved: self.indexesToReturnByCountry![country]!
+          .map { .init(localUrls: [URL(string: "http://example.com/\($0)")!], index: $0) }
+      )
+    } else {
+      self.getLatestKeyChunksMethodCalls.append(latestKnownChunkIndex)
+      // swiftlint:disable force_unwrapping
+      return .init(
+        resolved: self.indexesToReturn
+          .map { .init(localUrls: [URL(string: "http://example.com/\($0)")!], index: $0) }
+      )
+    }
     // swiftlint:enable force_unwrapping
   }
 

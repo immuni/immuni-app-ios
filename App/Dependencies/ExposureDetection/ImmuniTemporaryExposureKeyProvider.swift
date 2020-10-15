@@ -94,9 +94,7 @@ class ImmuniTemporaryExposureKeyProvider: TemporaryExposureKeyProvider {
         // (which we won't) the algorithm is stable
 
         let indexCount = (firstKeyToDownload ... keysIndex.newest).suffix(Self.keyDailyRateLimit).count
-        if #available(iOS 13.6, *) {
-          return (firstKeyToDownload ... keysIndex.newest).suffix(Self.keyDailyRateLimit)
-        } else {
+        #if DEBUG
           if self.keyDailyRateLimitCounter - indexCount >= 0 {
             let indexDailyRate = self.keyDailyRateLimitCounter
             self.keyDailyRateLimitCounter = self.keyDailyRateLimitCounter - indexCount
@@ -106,7 +104,21 @@ class ImmuniTemporaryExposureKeyProvider: TemporaryExposureKeyProvider {
             self.keyDailyRateLimitCounter = 0
             return (firstKeyToDownload ... keysIndex.newest).suffix(indexDailyRate)
           }
-        }
+        #else
+          if #available(iOS 13.6, *) {
+            return (firstKeyToDownload ... keysIndex.newest).suffix(Self.keyDailyRateLimit)
+          } else {
+            if self.keyDailyRateLimitCounter - indexCount >= 0 {
+              let indexDailyRate = self.keyDailyRateLimitCounter
+              self.keyDailyRateLimitCounter = self.keyDailyRateLimitCounter - indexCount
+              return (firstKeyToDownload ... keysIndex.newest).suffix(indexDailyRate)
+            } else {
+              let indexDailyRate = self.keyDailyRateLimitCounter
+              self.keyDailyRateLimitCounter = 0
+              return (firstKeyToDownload ... keysIndex.newest).suffix(indexDailyRate)
+            }
+          }
+        #endif
       }
   }
 

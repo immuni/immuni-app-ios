@@ -126,7 +126,6 @@ final class ImmuniExposureDetectionExecutorTests: XCTestCase {
     expectToEventually(!promise.isPending)
     XCTAssertNil(promise.error)
     let outcome = try XCTUnwrap(promise.result)
-
     XCTAssertEqual(outcome.rawCase, .noDetectionNecessary)
   }
 
@@ -152,7 +151,6 @@ final class ImmuniExposureDetectionExecutorTests: XCTestCase {
     expectToEventually(!promise.isPending)
     XCTAssertNil(promise.error)
     let outcome = try XCTUnwrap(promise.result)
-
     XCTAssertEqual(outcome.rawCase, .noDetectionNecessary)
   }
 
@@ -499,6 +497,52 @@ final class ImmuniExposureDetectionExecutorTests: XCTestCase {
     XCTAssertEqual(outcomeMaxIndex, maxIndex)
   }
 
+  func testCorrectIndexBoundariesAreReturnedForPartialDetectionWithCountryOfInterest() throws {
+    let executor = ImmuniExposureDetectionExecutor()
+
+    let minIndexIt = 4
+    let maxIndexIt = 6
+    let minIndexPl = 8
+    let maxIndexPl = 10
+
+    let PL = Country(countryId: "PL", countryHumanReadableName: "POLONIA")
+    let minIndexMap = ["IT": minIndexIt, "PL": minIndexPl]
+    let maxIndexMap = ["IT": maxIndexIt, "PL": maxIndexPl]
+
+    let promise = executor.execute(
+      exposureDetectionPeriod: 0,
+      lastExposureDetectionDate: nil,
+      latestProcessedKeyChunkIndex: nil,
+      exposureDetectionConfiguration: .init(),
+      exposureInfoRiskScoreThreshold: 0,
+      userExplanationMessage: "this is a test",
+      enManager: .init(provider: NoMatchMockExposureNotificationProvider(overriddenStatus: .authorized)),
+      tekProvider: MockTemporaryExposureKeyProvider(
+        minIndexToReturn: minIndexIt,
+        maxIndexToReturn: maxIndexIt,
+        minIndexToReturnByCountry: minIndexPl,
+        maxIndexToReturnByCountry: maxIndexPl,
+        country: PL
+      ),
+      now: { Date() },
+      isUserCovidPositive: false,
+      forceRun: false,
+      countriesOfInterest: [CountryOfInterest(country: PL)]
+    )
+
+    promise.run()
+
+    expectToEventually(!promise.isPending)
+    XCTAssertNil(promise.error)
+    let outcome = try XCTUnwrap(promise.result)
+
+    XCTAssertEqual(outcome.rawCase, .partialDetection)
+
+    let (outcomeMinIndex, outcomeMaxIndex) = try XCTUnwrap(outcome.processedChunkBoundaries)
+    XCTAssertEqual(outcomeMinIndex, minIndexMap)
+    XCTAssertEqual(outcomeMaxIndex, maxIndexMap)
+  }
+
   func testCorrectIndexBoundariesAreReturnedForFullDetection() throws {
     let executor = ImmuniExposureDetectionExecutor()
 
@@ -533,6 +577,52 @@ final class ImmuniExposureDetectionExecutorTests: XCTestCase {
     XCTAssertEqual(outcomeMaxIndex, maxIndex)
   }
 
+  func testCorrectIndexBoundariesAreReturnedForFullDetectionWithCountryOfInterest() throws {
+    let executor = ImmuniExposureDetectionExecutor()
+
+    let minIndexIt = 4
+    let maxIndexIt = 6
+    let minIndexPl = 8
+    let maxIndexPl = 10
+
+    let PL = Country(countryId: "PL", countryHumanReadableName: "POLONIA")
+    let minIndexMap = ["IT": minIndexIt, "PL": minIndexPl]
+    let maxIndexMap = ["IT": maxIndexIt, "PL": maxIndexPl]
+
+    let promise = executor.execute(
+      exposureDetectionPeriod: 0,
+      lastExposureDetectionDate: nil,
+      latestProcessedKeyChunkIndex: nil,
+      exposureDetectionConfiguration: .init(),
+      exposureInfoRiskScoreThreshold: 0,
+      userExplanationMessage: "this is a test",
+      enManager: .init(provider: MatchingMockExposureNotificationProvider(overriddenStatus: .authorized)),
+      tekProvider: MockTemporaryExposureKeyProvider(
+        minIndexToReturn: minIndexIt,
+        maxIndexToReturn: maxIndexIt,
+        minIndexToReturnByCountry: minIndexPl,
+        maxIndexToReturnByCountry: maxIndexPl,
+        country: PL
+      ),
+      now: { Date() },
+      isUserCovidPositive: false,
+      forceRun: true,
+      countriesOfInterest: [CountryOfInterest(country: PL)]
+    )
+
+    promise.run()
+
+    expectToEventually(!promise.isPending)
+    XCTAssertNil(promise.error)
+    let outcome = try XCTUnwrap(promise.result)
+
+    XCTAssertEqual(outcome.rawCase, .fullDetection)
+
+    let (outcomeMinIndex, outcomeMaxIndex) = try XCTUnwrap(outcome.processedChunkBoundaries)
+    XCTAssertEqual(outcomeMinIndex, minIndexMap)
+    XCTAssertEqual(outcomeMaxIndex, maxIndexMap)
+  }
+
   func testPreventFullDetectionWhenPositive() throws {
     let executor = ImmuniExposureDetectionExecutor()
 
@@ -565,6 +655,52 @@ final class ImmuniExposureDetectionExecutorTests: XCTestCase {
     let (outcomeMinIndex, outcomeMaxIndex) = try XCTUnwrap(outcome.processedChunkBoundaries)
     XCTAssertEqual(outcomeMinIndex, minIndex)
     XCTAssertEqual(outcomeMaxIndex, maxIndex)
+  }
+
+  func testPreventFullDetectionWhenPositiveWithCountryOfInterest() throws {
+    let executor = ImmuniExposureDetectionExecutor()
+
+    let minIndexIt = 4
+    let maxIndexIt = 6
+    let minIndexPl = 8
+    let maxIndexPl = 10
+
+    let PL = Country(countryId: "PL", countryHumanReadableName: "POLONIA")
+    let minIndexMap = ["IT": minIndexIt, "PL": minIndexPl]
+    let maxIndexMap = ["IT": maxIndexIt, "PL": maxIndexPl]
+
+    let promise = executor.execute(
+      exposureDetectionPeriod: 0,
+      lastExposureDetectionDate: nil,
+      latestProcessedKeyChunkIndex: nil,
+      exposureDetectionConfiguration: .init(),
+      exposureInfoRiskScoreThreshold: 0,
+      userExplanationMessage: "this is a test",
+      enManager: .init(provider: MatchingMockExposureNotificationProvider(overriddenStatus: .authorized)),
+      tekProvider: MockTemporaryExposureKeyProvider(
+        minIndexToReturn: minIndexIt,
+        maxIndexToReturn: maxIndexIt,
+        minIndexToReturnByCountry: minIndexPl,
+        maxIndexToReturnByCountry: maxIndexPl,
+        country: PL
+      ),
+      now: { Date() },
+      isUserCovidPositive: true,
+      forceRun: false,
+      countriesOfInterest: [CountryOfInterest(country: PL)]
+    )
+
+    promise.run()
+
+    expectToEventually(!promise.isPending)
+    XCTAssertNil(promise.error)
+    let outcome = try XCTUnwrap(promise.result)
+
+    XCTAssertEqual(outcome.rawCase, .partialDetection)
+
+    let (outcomeMinIndex, outcomeMaxIndex) = try XCTUnwrap(outcome.processedChunkBoundaries)
+    XCTAssertEqual(outcomeMinIndex, minIndexMap)
+    XCTAssertEqual(outcomeMaxIndex, maxIndexMap)
   }
 }
 

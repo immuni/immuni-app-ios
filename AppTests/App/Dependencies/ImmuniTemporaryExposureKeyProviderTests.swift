@@ -71,6 +71,28 @@ final class ImmuniTemporaryExposureKeyProviderTests: XCTestCase {
     XCTAssertEqual(chunks.last, 60)
   }
 
+  func testReturnCorrectValues​WithTooManyChunks() throws {
+    let mockedExecutor = MockRequestExecutor(mockedResult: .success(KeysIndex(oldest: 30, newest: 60)))
+    let networkManager = NetworkManager()
+    networkManager.start(with: .init(requestExecutor: mockedExecutor, now: { Date() }))
+
+    let keyProvider = ImmuniTemporaryExposureKeyProvider(networkManager: networkManager, fileStorage: MockFileStorage())
+
+    let promise = keyProvider.getMissingChunksIndexes(latestKnownChunkIndex: 55, country: nil)
+    let promise2 = keyProvider.getMissingChunksIndexes(
+      latestKnownChunkIndex: 40,
+      country: Country(countryId: "PL", countryHumanReadableName: "POLONIA")
+    )
+
+    expectToEventually(promise.isPending == false)
+    expectToEventually(promise2.isPending == false)
+
+    var chunks = try XCTUnwrap(promise.result)
+    chunks.append(contentsOf: try XCTUnwrap(promise2.result))
+
+    XCTAssertEqual(chunks.count, 15)
+  }
+
   func testReturnCorrectValuesOnRateLimit() throws {
     let mockedExecutor = MockRequestExecutor(mockedResult: .success(KeysIndex(oldest: 50, newest: 80)))
     let networkManager = NetworkManager()
